@@ -1,11 +1,36 @@
-import { DocsLayout } from 'fumadocs-ui/layout';
+import { DocsLayout } from 'fumadocs-ui/layouts/docs';
 import type { ReactNode } from 'react';
-import { getDocsStructure } from '@/lib/source';
+import { getDocsStructure, getPageContent } from '@/lib/source';
 import Link from 'next/link';
 
 interface LayoutProps {
   children: ReactNode;
   params: { generationId: string };
+}
+
+// Helper to create slug from text
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .trim();
+}
+
+// Extract headings from markdown content
+function extractHeadings(content: string): { title: string; slug: string; depth: number }[] {
+  const headingRegex = /^(#{1,3})\s+(.+)$/gm;
+  const headings: { title: string; slug: string; depth: number }[] = [];
+  let match;
+
+  while ((match = headingRegex.exec(content)) !== null) {
+    const depth = match[1].length;
+    const title = match[2].trim();
+    headings.push({ title, slug: slugify(title), depth });
+  }
+
+  return headings;
 }
 
 export default async function Layout({ children, params }: LayoutProps) {
@@ -29,8 +54,12 @@ export default async function Layout({ children, params }: LayoutProps) {
     );
   }
 
-  // Build navigation tree from pages
-  const tree = buildNavigationTree(structure.meta.pages, generationId, structure.meta.title);
+  // Get the main content to extract headings for sidebar
+  const mainPage = await getPageContent(generationId, 'index');
+  const headings = mainPage ? extractHeadings(mainPage.content) : [];
+
+  // Build navigation tree from document headings
+  const tree = buildNavigationTreeFromHeadings(headings, generationId, structure.meta.title);
 
   return (
     <DocsLayout
@@ -40,7 +69,7 @@ export default async function Layout({ children, params }: LayoutProps) {
         url: `/${generationId}`,
       }}
       sidebar={{
-        defaultOpenLevel: 1,
+        defaultOpenLevel: 2,
       }}
       links={[
         {
@@ -55,29 +84,32 @@ export default async function Layout({ children, params }: LayoutProps) {
 }
 
 /**
- * Build Fumadocs navigation tree from page slugs
+ * Build Fumadocs navigation tree from document headings
+ * Fumadocs PageTree format: { name: string, children: PageTreeItem[] }
  */
-function buildNavigationTree(pages: string[], generationId: string, title: string) {
-  const children = pages.map((page) => ({
+function buildNavigationTreeFromHeadings(
+  headings: { title: string; slug: string; depth: number }[],
+  generationId: string,
+  title: string
+): { name: string; children: any[] } {
+  // Filter to only H2 headings for the main sections
+  const h2Headings = headings.filter(h => h.depth === 2);
+
+  const children = h2Headings.map((heading) => ({
     type: 'page' as const,
-    name: formatPageTitle(page),
-    url: `/${generationId}/${page === 'index' ? '' : page}`,
+    name: heading.title,
+    url: `/${generationId}#${heading.slug}`,
   }));
 
+  // Fumadocs PageTree expects { name, children } at root
   return {
     name: title,
-    children,
+    children: children.length > 0 ? children : [
+      {
+        type: 'page' as const,
+        name: 'Overview',
+        url: `/${generationId}`,
+      }
+    ],
   };
-}
-
-/**
- * Format a slug into a readable title
- */
-function formatPageTitle(slug: string): string {
-  if (slug === 'index') return 'Overview';
-
-  return slug
-    .split('-')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
 }

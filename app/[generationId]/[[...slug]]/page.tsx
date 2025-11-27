@@ -10,6 +10,32 @@ interface PageProps {
   };
 }
 
+// Helper to create slug from text
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .trim();
+}
+
+// Extract TOC from markdown content
+function extractTOC(content: string): { title: string; url: string; depth: number }[] {
+  const headingRegex = /^(#{1,4})\s+(.+)$/gm;
+  const toc: { title: string; url: string; depth: number }[] = [];
+  let match;
+
+  while ((match = headingRegex.exec(content)) !== null) {
+    const depth = match[1].length;
+    const title = match[2].trim();
+    const url = `#${slugify(title)}`;
+    toc.push({ title, url, depth });
+  }
+
+  return toc;
+}
+
 export default async function Page({ params }: PageProps) {
   const { generationId, slug } = params;
   const pageSlug = slug?.join('/') || 'index';
@@ -20,8 +46,11 @@ export default async function Page({ params }: PageProps) {
     notFound();
   }
 
+  // Extract table of contents from markdown
+  const toc = extractTOC(page.content);
+
   return (
-    <DocsPage>
+    <DocsPage toc={toc}>
       <DocsTitle>{page.title}</DocsTitle>
       {page.description && <DocsDescription>{page.description}</DocsDescription>}
       <DocsBody>
