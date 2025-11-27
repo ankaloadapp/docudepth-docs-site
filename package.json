@@ -11,7 +11,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.658.0",
     "fumadocs-core": "^15.8.5",
-    "fumadocs-mdx": "^10.0.2",
+    "fumadocs-mdx": "^14.0.3",
     "fumadocs-ui": "^15.8.5",
     "highlight.js": "^11.10.0",
     "mermaid": "^11.0.0",
