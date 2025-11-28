@@ -14,12 +14,8 @@ const nextConfig = {
   transpilePackages: [
     'react-markdown',
     'remark-gfm',
-    'rehype-highlight',
     'rehype-slug',
     'unified',
-    'unist-util-visit',
-    'hast-util-heading-rank',
-    'hast-util-to-string',
   ],
   // Webpack configuration for production
   webpack: (config, { isServer }) => {
