@@ -22,11 +22,13 @@ export default async function Page({ params }: PageProps) {
   }
 
   return (
-    <article className="prose prose-gray dark:prose-invert max-w-none">
-      <h1 className="text-3xl font-bold mb-4">{page.title}</h1>
-      {page.description && (
-        <p className="text-lg text-gray-600 dark:text-gray-400 mb-8">{page.description}</p>
-      )}
+    <article className="prose prose-gray dark:prose-invert max-w-none prose-headings:scroll-mt-20 prose-a:text-purple-600 dark:prose-a:text-purple-400 prose-pre:bg-gray-50 dark:prose-pre:bg-gray-900 prose-pre:border prose-pre:border-gray-200 dark:prose-pre:border-gray-800">
+      <div className="mb-8 pb-8 border-b border-gray-200 dark:border-gray-800">
+        <h1 className="text-4xl font-bold mb-3 !mt-0">{page.title}</h1>
+        {page.description && (
+          <p className="text-lg text-gray-600 dark:text-gray-400 !mb-0">{page.description}</p>
+        )}
+      </div>
       <MDXContent content={page.content} />
     </article>
   );

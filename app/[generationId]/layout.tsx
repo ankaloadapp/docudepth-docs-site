@@ -10,75 +10,64 @@ interface LayoutProps {
   params: { generationId: string };
 }
 
-// Helper to create slug from text
-function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[^\w\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .trim();
-}
-
-// Extract headings from markdown content
-function extractHeadings(content: string): { title: string; slug: string; depth: number }[] {
-  const headingRegex = /^(#{1,3})\s+(.+)$/gm;
-  const headings: { title: string; slug: string; depth: number }[] = [];
-  let match;
-
-  while ((match = headingRegex.exec(content)) !== null) {
-    const depth = match[1].length;
-    const title = match[2].trim();
-    headings.push({ title, slug: slugify(title), depth });
-  }
-
-  return headings;
-}
-
 export default async function Layout({ children, params }: LayoutProps) {
   const { generationId } = params;
   const structure = await getDocsStructure(generationId);
 
   if (!structure) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-8">
-        <h1 className="text-2xl font-bold mb-4">Documentation Not Found</h1>
-        <p className="text-gray-600 dark:text-gray-400 mb-6">
-          This documentation may still be generating or the link is invalid.
-        </p>
-        <Link
-          href="https://docudepthai.com/dashboard"
-          className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-        >
-          Go to Dashboard
-        </Link>
+      <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-gray-950">
+        <div className="text-center max-w-md">
+          <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+            <svg className="w-8 h-8 text-purple-600 dark:text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          </div>
+          <h1 className="text-2xl font-bold mb-3 text-gray-900 dark:text-white">Documentation Not Found</h1>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">
+            This documentation may still be generating or the link is invalid.
+          </p>
+          <Link
+            href="https://docudepthai.com/dashboard"
+            className="inline-flex items-center px-5 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium"
+          >
+            Go to Dashboard
+            <svg className="w-4 h-4 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+            </svg>
+          </Link>
+        </div>
       </div>
     );
   }
 
-  // Get the default page slug (index or first page)
-  const defaultSlug = await getDefaultPageSlug(generationId);
-
-  // Get the main content to extract headings for sidebar
-  const mainPage = await getPageContent(generationId, defaultSlug);
-  const headings = mainPage ? extractHeadings(mainPage.content) : [];
-  const h2Headings = headings.filter(h => h.depth === 2);
-
   return (
     <div className="min-h-screen bg-white dark:bg-gray-950">
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-gray-950/80 backdrop-blur-sm">
+      <header className="sticky top-0 z-50 border-b border-gray-200 dark:border-gray-800 bg-white/95 dark:bg-gray-950/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:supports-[backdrop-filter]:bg-gray-950/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <Link href={`/${generationId}`} className="font-semibold text-lg text-gray-900 dark:text-white">
-              {structure.meta.title}
-            </Link>
-            <Link
-              href="https://docudepthai.com/dashboard"
-              className="text-sm text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
-            >
-              Dashboard
-            </Link>
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center">
+                <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <Link href={`/${generationId}`} className="font-semibold text-lg text-gray-900 dark:text-white hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
+                {structure.meta.title}
+              </Link>
+            </div>
+            <div className="flex items-center gap-4">
+              <span className="hidden sm:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                Generated by DocuDepth
+              </span>
+              <Link
+                href="https://docudepthai.com/dashboard"
+                className="text-sm text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+              >
+                Dashboard
+              </Link>
+            </div>
           </div>
         </div>
       </header>
@@ -87,37 +76,27 @@ export default async function Layout({ children, params }: LayoutProps) {
         <div className="flex gap-8">
           {/* Sidebar */}
           <aside className="hidden lg:block w-64 shrink-0">
-            <nav className="sticky top-24 space-y-1 max-h-[calc(100vh-8rem)] overflow-y-auto">
-              {/* Pages from meta.pages */}
+            <nav className="sticky top-24 space-y-1 max-h-[calc(100vh-8rem)] overflow-y-auto pr-4">
+              <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 px-3">
+                Documentation
+              </div>
               {structure.meta.pages && structure.meta.pages.length > 0 ? (
                 structure.meta.pages.map((pageSlug) => (
                   <Link
                     key={pageSlug}
                     href={`/${generationId}/${pageSlug}`}
-                    className="block px-3 py-2 text-sm text-gray-600 dark:text-gray-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 capitalize"
+                    className="block px-3 py-2 text-sm text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-purple-600 dark:hover:text-purple-400 transition-colors capitalize"
                   >
                     {pageSlug.replace(/-/g, ' ')}
                   </Link>
                 ))
               ) : (
-                // Fallback to h2 headings if no pages
-                <>
-                  <Link
-                    href={`/${generationId}`}
-                    className="block px-3 py-2 text-sm font-medium text-gray-900 dark:text-white rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
-                  >
-                    Overview
-                  </Link>
-                  {h2Headings.map((heading) => (
-                    <Link
-                      key={heading.slug}
-                      href={`/${generationId}#${heading.slug}`}
-                      className="block px-3 py-2 text-sm text-gray-600 dark:text-gray-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
-                    >
-                      {heading.title}
-                    </Link>
-                  ))}
-                </>
+                <Link
+                  href={`/${generationId}`}
+                  className="block px-3 py-2 text-sm font-medium text-gray-900 dark:text-white rounded-lg bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300"
+                >
+                  Overview
+                </Link>
               )}
             </nav>
           </aside>
@@ -128,6 +107,23 @@ export default async function Layout({ children, params }: LayoutProps) {
           </main>
         </div>
       </div>
+
+      {/* Footer */}
+      <footer className="border-t border-gray-200 dark:border-gray-800 mt-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Generated with DocuDepth AI
+            </p>
+            <Link
+              href="https://docudepthai.com"
+              className="text-sm text-purple-600 dark:text-purple-400 hover:underline"
+            >
+              Create your own documentation
+            </Link>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

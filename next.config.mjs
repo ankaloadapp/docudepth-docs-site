@@ -12,6 +12,8 @@ const nextConfig = {
   },
   // Transpile packages that have ESM/CJS issues in production
   transpilePackages: [
+    'fumadocs-ui',
+    'fumadocs-core',
     'react-markdown',
     'remark-gfm',
     'rehype-slug',
