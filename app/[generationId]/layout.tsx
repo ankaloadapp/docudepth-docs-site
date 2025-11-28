@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { getDocsStructure, getPageContent } from '@/lib/source';
+import { getDocsStructure, getPageContent, getDefaultPageSlug } from '@/lib/source';
 import Link from 'next/link';
 
 // Disable caching - always fetch fresh data from S3
@@ -56,8 +56,11 @@ export default async function Layout({ children, params }: LayoutProps) {
     );
   }
 
+  // Get the default page slug (index or first page)
+  const defaultSlug = await getDefaultPageSlug(generationId);
+
   // Get the main content to extract headings for sidebar
-  const mainPage = await getPageContent(generationId, 'index');
+  const mainPage = await getPageContent(generationId, defaultSlug);
   const headings = mainPage ? extractHeadings(mainPage.content) : [];
   const h2Headings = headings.filter(h => h.depth === 2);
 
@@ -84,22 +87,38 @@ export default async function Layout({ children, params }: LayoutProps) {
         <div className="flex gap-8">
           {/* Sidebar */}
           <aside className="hidden lg:block w-64 shrink-0">
-            <nav className="sticky top-24 space-y-1">
-              <Link
-                href={`/${generationId}`}
-                className="block px-3 py-2 text-sm font-medium text-gray-900 dark:text-white rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
-              >
-                Overview
-              </Link>
-              {h2Headings.map((heading) => (
-                <Link
-                  key={heading.slug}
-                  href={`/${generationId}#${heading.slug}`}
-                  className="block px-3 py-2 text-sm text-gray-600 dark:text-gray-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
-                >
-                  {heading.title}
-                </Link>
-              ))}
+            <nav className="sticky top-24 space-y-1 max-h-[calc(100vh-8rem)] overflow-y-auto">
+              {/* Pages from meta.pages */}
+              {structure.meta.pages && structure.meta.pages.length > 0 ? (
+                structure.meta.pages.map((pageSlug) => (
+                  <Link
+                    key={pageSlug}
+                    href={`/${generationId}/${pageSlug}`}
+                    className="block px-3 py-2 text-sm text-gray-600 dark:text-gray-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 capitalize"
+                  >
+                    {pageSlug.replace(/-/g, ' ')}
+                  </Link>
+                ))
+              ) : (
+                // Fallback to h2 headings if no pages
+                <>
+                  <Link
+                    href={`/${generationId}`}
+                    className="block px-3 py-2 text-sm font-medium text-gray-900 dark:text-white rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+                  >
+                    Overview
+                  </Link>
+                  {h2Headings.map((heading) => (
+                    <Link
+                      key={heading.slug}
+                      href={`/${generationId}#${heading.slug}`}
+                      className="block px-3 py-2 text-sm text-gray-600 dark:text-gray-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+                    >
+                      {heading.title}
+                    </Link>
+                  ))}
+                </>
+              )}
             </nav>
           </aside>
 

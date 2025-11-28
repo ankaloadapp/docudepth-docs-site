@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { getPageContent } from '@/lib/source';
+import { getPageContent, getDefaultPageSlug } from '@/lib/source';
 import { MDXContent } from '@/components/mdx-content';
 
 interface PageProps {
@@ -11,7 +11,9 @@ interface PageProps {
 
 export default async function Page({ params }: PageProps) {
   const { generationId, slug } = params;
-  const pageSlug = slug?.join('/') || 'index';
+
+  // If no slug provided, get the default page (index or first page in meta)
+  const pageSlug = slug?.join('/') || await getDefaultPageSlug(generationId);
 
   const page = await getPageContent(generationId, pageSlug);
 
@@ -32,7 +34,7 @@ export default async function Page({ params }: PageProps) {
 
 export async function generateMetadata({ params }: PageProps) {
   const { generationId, slug } = params;
-  const pageSlug = slug?.join('/') || 'index';
+  const pageSlug = slug?.join('/') || await getDefaultPageSlug(generationId);
 
   const page = await getPageContent(generationId, pageSlug);
 

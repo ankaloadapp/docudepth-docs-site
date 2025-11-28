@@ -162,6 +162,26 @@ export async function getDocsStructure(generationId: string): Promise<DocsStruct
 }
 
 /**
+ * Get the default page slug for a generation (first page if no index exists)
+ */
+export async function getDefaultPageSlug(generationId: string): Promise<string> {
+  const meta = await getDocsMetaForGeneration(generationId);
+
+  // Check if index.mdx exists
+  const indexPage = await getPageContent(generationId, 'index');
+  if (indexPage) {
+    return 'index';
+  }
+
+  // Fall back to first page in meta.pages
+  if (meta && meta.pages && meta.pages.length > 0) {
+    return meta.pages[0];
+  }
+
+  return 'index'; // Final fallback
+}
+
+/**
  * Check if documentation exists for a generation
  */
 export async function docsExist(generationId: string): Promise<boolean> {
