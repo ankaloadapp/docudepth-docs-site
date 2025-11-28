@@ -1,12 +1,17 @@
 import { S3Client, GetObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
 
+// Use DOCUDEPTH_ prefix for Amplify (AWS_ prefix is reserved)
+const region = process.env.DOCUDEPTH_REGION || process.env.AWS_REGION || 'us-east-2';
+const accessKeyId = process.env.DOCUDEPTH_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID;
+const secretAccessKey = process.env.DOCUDEPTH_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY;
+
 const s3Client = new S3Client({
-  region: process.env.AWS_REGION || 'us-east-2',
+  region,
   // In production, use IAM role. In development, use credentials from env
-  ...(process.env.AWS_ACCESS_KEY_ID && {
+  ...(accessKeyId && {
     credentials: {
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+      accessKeyId,
+      secretAccessKey: secretAccessKey!,
     },
   }),
 });
