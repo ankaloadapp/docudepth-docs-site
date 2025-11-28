@@ -1,65 +1,115 @@
 import type { ReactNode } from 'react';
 import { Layout, Navbar } from 'nextra-theme-docs';
-import { getDocsStructure, getPageContent } from '@/lib/source';
+import { getDocsStructure, getPageContent, formatSlugAsTitle } from '@/lib/source';
 import Link from 'next/link';
 
-// Disable caching - always fetch fresh data from S3
-export const dynamic = 'force-dynamic';
+// ISR: Revalidate every 5 minutes
+export const revalidate = 300;
+
+// Allow any generationId to be accessed
+export const dynamicParams = true;
 
 interface LayoutProps {
   children: ReactNode;
-  params: { generationId: string };
+  params: Promise<{ generationId: string }>;
 }
 
-// Build page map from our S3 docs structure
-async function buildPageMap(generationId: string, structure: { meta: { title: string; pages: string[] } }) {
-  // Build flat page items for Nextra
-  const pageItems = await Promise.all(
+interface PageMapItem {
+  name: string;
+  route: string;
+  frontMatter: { title: string; description?: string };
+}
+
+interface PageMapMeta {
+  data: Record<string, string | { display: string }>;
+}
+
+type PageMap = (PageMapItem | PageMapMeta)[];
+
+/**
+ * Build Nextra-compatible page map from S3 docs structure
+ */
+async function buildPageMap(
+  generationId: string,
+  structure: { meta: { title: string; pages: string[] } }
+): Promise<PageMap> {
+  // Build page items with titles from content
+  const pageItems: PageMapItem[] = await Promise.all(
     structure.meta.pages.map(async (pageSlug) => {
       const pageContent = await getPageContent(generationId, pageSlug);
-      const title = pageContent?.title || pageSlug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+      const title = pageContent?.title || formatSlugAsTitle(pageSlug);
 
       return {
         name: pageSlug,
         route: `/${generationId}/${pageSlug}`,
-        frontMatter: { title },
+        frontMatter: {
+          title,
+          description: pageContent?.description,
+        },
       };
     })
   );
 
-  // Return as array with data entry for metadata
-  return [
-    {
-      data: {
-        '*': { display: 'hidden' },
-        ...Object.fromEntries(
-          structure.meta.pages.map((slug) => {
-            const item = pageItems.find(p => p.name === slug);
-            return [slug, item?.frontMatter.title || slug];
-          })
-        ),
-      },
+  // Build meta entry for sidebar ordering and titles
+  const metaItem: PageMapMeta = {
+    data: {
+      '*': { display: 'hidden' },
+      ...Object.fromEntries(
+        pageItems.map((item) => [item.name, item.frontMatter.title])
+      ),
     },
-    ...pageItems,
-  ];
+  };
+
+  return [metaItem, ...pageItems];
 }
 
 export default async function DocsLayout({ children, params }: LayoutProps) {
-  const { generationId } = params;
+  const { generationId } = await params;
   const structure = await getDocsStructure(generationId);
 
   if (!structure) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-gray-950">
         <div className="text-center max-w-md">
-          <h1 className="text-2xl font-bold mb-3 text-gray-900 dark:text-white">Documentation Not Found</h1>
+          <div className="mb-6">
+            <svg
+              className="mx-auto h-16 w-16 text-gray-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+              />
+            </svg>
+          </div>
+          <h1 className="text-2xl font-bold mb-3 text-gray-900 dark:text-white">
+            Documentation Not Found
+          </h1>
           <p className="text-gray-600 dark:text-gray-400 mb-6">
             This documentation may still be generating or the link is invalid.
+            Please check back in a few minutes.
           </p>
           <Link
             href="https://docudepthai.com/dashboard"
-            className="inline-flex items-center px-5 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium"
+            className="inline-flex items-center px-5 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium shadow-sm"
           >
+            <svg
+              className="mr-2 h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M10 19l-7-7m0 0l7-7m-7 7h18"
+              />
+            </svg>
             Go to Dashboard
           </Link>
         </div>
@@ -74,21 +124,37 @@ export default async function DocsLayout({ children, params }: LayoutProps) {
       navbar={
         <Navbar
           logo={
-            <span className="font-bold text-lg">{structure.meta.title}</span>
+            <span className="font-bold text-lg bg-gradient-to-r from-purple-600 to-blue-500 bg-clip-text text-transparent">
+              {structure.meta.title}
+            </span>
           }
           projectLink="https://docudepthai.com/dashboard"
         />
       }
-      sidebar={{
-        defaultMenuCollapseLevel: 1,
-        autoCollapse: false,
-      }}
       pageMap={pageMap}
       docsRepositoryBase="https://docudepthai.com"
+      sidebar={{
+        defaultMenuCollapseLevel: 2,
+        autoCollapse: false,
+        toggleButton: true,
+      }}
+      toc={{
+        float: true,
+        title: 'On This Page',
+        backToTop: true,
+      }}
       footer={
-        <div className="flex w-full flex-col items-center sm:items-start">
-          <p className="text-sm text-gray-500">
-            Generated with DocuDepth AI
+        <div className="flex w-full flex-col items-center sm:items-start py-4">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Generated with{' '}
+            <a
+              href="https://docudepthai.com"
+              className="text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 font-medium"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              DocuDepth AI
+            </a>
           </p>
         </div>
       }

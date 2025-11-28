@@ -1,4 +1,12 @@
 @import 'tailwindcss';
-@import 'fumadocs-ui/css/black.css';
-@import 'fumadocs-ui/css/preset.css';
-@import 'highlight.js/styles/github-dark.css';
+
+/* DocuDepth brand colors - Purple theme */
+:root {
+  --nextra-primary-hue: 262deg;
+  --nextra-primary-saturation: 83%;
+}
+
+.dark {
+  --nextra-primary-hue: 262deg;
+  --nextra-primary-saturation: 83%;
+}

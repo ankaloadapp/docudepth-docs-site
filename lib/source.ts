@@ -1,123 +1,187 @@
+import { cache } from 'react';
+import { fetchWithRetry } from './retry';
+import { logWarn, logError } from './logger';
+import { S3FetchError, toError } from './errors';
+import type { DocsMeta, PageContent, DocsStructure, ParsedMdx } from './types';
+
+// ============================================
+// Configuration
+// ============================================
+
 const DOCS_PREFIX = 'docs-sites';
 const BUCKET = 'docudepth-storage';
 const REGION = 'us-east-2';
 
-// Use public S3 URL for fetching (bucket has public read policy for docs-sites/*)
+// ISR revalidation time in seconds (5 minutes)
+const REVALIDATE_TIME = 300;
+
+/**
+ * Generate public S3 URL for a key
+ */
 function getS3Url(key: string): string {
   return `https://${BUCKET}.s3.${REGION}.amazonaws.com/${key}`;
 }
 
-export interface DocsMeta {
-  title: string;
-  pages: string[];
-  defaultOpen?: boolean;
-}
-
-export interface PageContent {
-  slug: string;
-  title: string;
-  description?: string;
-  content: string;
-}
-
-export interface DocsStructure {
-  meta: DocsMeta;
-  pages: string[];
-}
-
 /**
- * Get the meta.json for a generation
+ * Parse YAML frontmatter from MDX content
  */
-export async function getDocsMetaForGeneration(generationId: string): Promise<DocsMeta | null> {
-  try {
-    const url = getS3Url(`${DOCS_PREFIX}/${generationId}/meta.json`);
-    const response = await fetch(url);
+function parseFrontmatter(content: string): ParsedMdx {
+  const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
 
-    if (!response.ok) {
-      if (response.status === 404 || response.status === 403) {
-        return null;
-      }
-      throw new Error(`Failed to fetch meta.json: ${response.status}`);
-    }
-
-    const body = await response.text();
-    if (!body) return null;
-
-    return JSON.parse(body) as DocsMeta;
-  } catch (error: any) {
-    console.error('Error fetching docs meta:', error);
-    return null;
+  if (!frontmatterMatch) {
+    return { frontmatter: {}, body: content };
   }
+
+  const frontmatterStr = frontmatterMatch[1];
+  const body = frontmatterMatch[2].trim();
+
+  // Extract title and description from frontmatter
+  const titleMatch = frontmatterStr.match(/title:\s*"([^"]+)"/);
+  const descMatch = frontmatterStr.match(/description:\s*"([^"]+)"/);
+
+  return {
+    frontmatter: {
+      title: titleMatch?.[1],
+      description: descMatch?.[1],
+    },
+    body,
+  };
 }
 
+// ============================================
+// Cached Data Fetching Functions
+// ============================================
+
 /**
- * Get a specific page content
+ * Get the meta.json for a generation (cached)
  */
-export async function getPageContent(
-  generationId: string,
-  slug: string
-): Promise<PageContent | null> {
-  try {
-    // Default to index if no slug
+export const getDocsMetaForGeneration = cache(
+  async (generationId: string): Promise<DocsMeta | null> => {
+    const key = `${DOCS_PREFIX}/${generationId}/meta.json`;
+    const url = getS3Url(key);
+
+    try {
+      const response = await fetchWithRetry(url, {
+        next: {
+          revalidate: REVALIDATE_TIME,
+          tags: [`docs-${generationId}`],
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 404 || response.status === 403) {
+          logWarn('Docs meta not found', {
+            generationId,
+            statusCode: response.status,
+          });
+          return null;
+        }
+        throw new S3FetchError(
+          `Failed to fetch meta.json: ${response.status}`,
+          response.status,
+          key,
+          generationId
+        );
+      }
+
+      const body = await response.text();
+      if (!body) return null;
+
+      return JSON.parse(body) as DocsMeta;
+    } catch (error) {
+      const err = toError(error);
+      logError('Failed to fetch docs meta', err, {
+        generationId,
+        operation: 'getDocsMetaForGeneration',
+      });
+
+      // Re-throw S3FetchError for error boundary handling
+      if (error instanceof S3FetchError) {
+        throw error;
+      }
+
+      return null;
+    }
+  }
+);
+
+/**
+ * Get a specific page content (cached)
+ */
+export const getPageContent = cache(
+  async (generationId: string, slug: string): Promise<PageContent | null> => {
     const pageSlug = slug || 'index';
     const key = `${DOCS_PREFIX}/${generationId}/${pageSlug}.mdx`;
     const url = getS3Url(key);
 
-    const response = await fetch(url);
+    try {
+      const response = await fetchWithRetry(url, {
+        next: {
+          revalidate: REVALIDATE_TIME,
+          tags: [`docs-${generationId}`, `page-${generationId}-${pageSlug}`],
+        },
+      });
 
-    if (!response.ok) {
-      if (response.status === 404 || response.status === 403) {
-        return null;
+      if (!response.ok) {
+        if (response.status === 404 || response.status === 403) {
+          return null;
+        }
+        throw new S3FetchError(
+          `Failed to fetch page: ${response.status}`,
+          response.status,
+          key,
+          generationId
+        );
       }
-      throw new Error(`Failed to fetch page: ${response.status}`);
-    }
 
-    const content = await response.text();
-    if (!content) return null;
+      const content = await response.text();
+      if (!content) return null;
 
-    // Parse frontmatter
-    const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+      const { frontmatter, body } = parseFrontmatter(content);
 
-    if (!frontmatterMatch) {
       return {
         slug: pageSlug,
-        title: pageSlug,
-        content: content,
+        title: frontmatter.title || formatSlugAsTitle(pageSlug),
+        description: frontmatter.description,
+        content: body,
       };
+    } catch (error) {
+      const err = toError(error);
+      logError('Failed to fetch page content', err, {
+        generationId,
+        slug: pageSlug,
+        operation: 'getPageContent',
+      });
+
+      if (error instanceof S3FetchError) {
+        throw error;
+      }
+
+      return null;
     }
-
-    const frontmatter = frontmatterMatch[1];
-    const body = frontmatterMatch[2];
-
-    // Extract title and description from frontmatter
-    const titleMatch = frontmatter.match(/title:\s*"([^"]+)"/);
-    const descMatch = frontmatter.match(/description:\s*"([^"]+)"/);
-
-    return {
-      slug: pageSlug,
-      title: titleMatch ? titleMatch[1] : pageSlug,
-      description: descMatch ? descMatch[1] : undefined,
-      content: body.trim(),
-    };
-  } catch (error: any) {
-    console.error('Error fetching page content:', error);
-    return null;
   }
-}
+);
 
 /**
- * List all pages for a generation
- * Uses the S3 ListBucketResult API for public buckets
+ * List all pages for a generation (cached)
  */
-export async function listPages(generationId: string): Promise<string[]> {
-  try {
-    const prefix = `${DOCS_PREFIX}/${generationId}/`;
-    const url = `https://${BUCKET}.s3.${REGION}.amazonaws.com/?list-type=2&prefix=${encodeURIComponent(prefix)}`;
+export const listPages = cache(async (generationId: string): Promise<string[]> => {
+  const prefix = `${DOCS_PREFIX}/${generationId}/`;
+  const url = `https://${BUCKET}.s3.${REGION}.amazonaws.com/?list-type=2&prefix=${encodeURIComponent(prefix)}`;
 
-    const response = await fetch(url);
+  try {
+    const response = await fetchWithRetry(url, {
+      next: {
+        revalidate: REVALIDATE_TIME,
+        tags: [`docs-${generationId}`],
+      },
+    });
 
     if (!response.ok) {
-      console.error('Failed to list pages:', response.status);
+      logWarn('Failed to list pages', {
+        generationId,
+        statusCode: response.status,
+      });
       return [];
     }
 
@@ -139,34 +203,38 @@ export async function listPages(generationId: string): Promise<string[]> {
 
     return pages;
   } catch (error) {
-    console.error('Error listing pages:', error);
+    const err = toError(error);
+    logError('Failed to list pages', err, {
+      generationId,
+      operation: 'listPages',
+    });
     return [];
   }
-}
+});
 
 /**
- * Get full docs structure for a generation
+ * Get full docs structure for a generation (cached)
  */
-export async function getDocsStructure(generationId: string): Promise<DocsStructure | null> {
-  const [meta, pages] = await Promise.all([
-    getDocsMetaForGeneration(generationId),
-    listPages(generationId),
-  ]);
+export const getDocsStructure = cache(
+  async (generationId: string): Promise<DocsStructure | null> => {
+    const [meta, pages] = await Promise.all([
+      getDocsMetaForGeneration(generationId),
+      listPages(generationId),
+    ]);
 
-  if (!meta) return null;
+    if (!meta) return null;
 
-  return {
-    meta,
-    pages,
-  };
-}
+    return {
+      meta,
+      pages,
+    };
+  }
+);
 
 /**
- * Get the default page slug for a generation (first page if no index exists)
+ * Get the default page slug for a generation
  */
-export async function getDefaultPageSlug(generationId: string): Promise<string> {
-  const meta = await getDocsMetaForGeneration(generationId);
-
+export const getDefaultPageSlug = cache(async (generationId: string): Promise<string> => {
   // Check if index.mdx exists
   const indexPage = await getPageContent(generationId, 'index');
   if (indexPage) {
@@ -174,17 +242,36 @@ export async function getDefaultPageSlug(generationId: string): Promise<string> 
   }
 
   // Fall back to first page in meta.pages
-  if (meta && meta.pages && meta.pages.length > 0) {
+  const meta = await getDocsMetaForGeneration(generationId);
+  if (meta?.pages?.length) {
     return meta.pages[0];
   }
 
   return 'index'; // Final fallback
-}
+});
 
 /**
  * Check if documentation exists for a generation
  */
-export async function docsExist(generationId: string): Promise<boolean> {
+export const docsExist = cache(async (generationId: string): Promise<boolean> => {
   const meta = await getDocsMetaForGeneration(generationId);
   return meta !== null;
+});
+
+// ============================================
+// Utility Functions
+// ============================================
+
+/**
+ * Format a slug as a title (e.g., "getting-started" -> "Getting Started")
+ */
+export function formatSlugAsTitle(slug: string): string {
+  return slug
+    .replace(/-/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
 }
+
+/**
+ * Re-export types for convenience
+ */
+export type { DocsMeta, PageContent, DocsStructure };

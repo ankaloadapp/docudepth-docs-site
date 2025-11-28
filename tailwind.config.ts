@@ -5,8 +5,9 @@ const config: Config = {
     './components/**/*.{ts,tsx}',
     './app/**/*.{ts,tsx}',
     './lib/**/*.{ts,tsx}',
-    './node_modules/fumadocs-ui/dist/**/*.js',
+    './mdx-components.tsx',
   ],
+  darkMode: 'class',
 };
 
 export default config;
