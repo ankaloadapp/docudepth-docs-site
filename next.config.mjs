@@ -10,6 +10,29 @@ const nextConfig = {
       },
     ],
   },
+  // Transpile packages that have ESM/CJS issues in production
+  transpilePackages: [
+    'react-markdown',
+    'remark-gfm',
+    'rehype-highlight',
+    'rehype-slug',
+    'unified',
+    'unist-util-visit',
+    'hast-util-heading-rank',
+    'hast-util-to-string',
+  ],
+  // Webpack configuration for production
+  webpack: (config, { isServer }) => {
+    // Fix for highlight.js in production
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        path: false,
+      };
+    }
+    return config;
+  },
 };
 
 export default nextConfig;
