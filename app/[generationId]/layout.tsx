@@ -3,6 +3,9 @@ import type { ReactNode } from 'react';
 import { getDocsStructure, getPageContent } from '@/lib/source';
 import Link from 'next/link';
 
+// Disable caching - always fetch fresh data from S3
+export const dynamic = 'force-dynamic';
+
 interface LayoutProps {
   children: ReactNode;
   params: { generationId: string };
