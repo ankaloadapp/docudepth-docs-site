@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Layout, Navbar } from 'nextra-theme-docs';
+import type { PageMapItem, MdxFile } from 'nextra';
 import { getDocsStructure, getPageContent, formatSlugAsTitle } from '@/lib/source';
 import Link from 'next/link';
 
@@ -14,27 +15,21 @@ interface LayoutProps {
   params: Promise<{ generationId: string }>;
 }
 
-interface PageMapItem {
-  name: string;
-  route: string;
-  frontMatter: { title: string; description?: string };
+// Extended MdxFile type with direct title property for sidebar display
+interface PageItem extends MdxFile {
+  title: string;
 }
-
-interface PageMapMeta {
-  data: Record<string, string | { display: string }>;
-}
-
-type PageMap = (PageMapItem | PageMapMeta)[];
 
 /**
  * Build Nextra-compatible page map from S3 docs structure
+ * Following Nextra's expected format for the docs theme sidebar
  */
 async function buildPageMap(
   generationId: string,
   structure: { meta: { title: string; pages: string[] } }
-): Promise<PageMap> {
-  // Build page items with titles from content
-  const pageItems: PageMapItem[] = await Promise.all(
+): Promise<PageMapItem[]> {
+  // Build page items with direct title property (required for sidebar display)
+  const pageItems: PageItem[] = await Promise.all(
     structure.meta.pages.map(async (pageSlug) => {
       const pageContent = await getPageContent(generationId, pageSlug);
       const title = pageContent?.title || formatSlugAsTitle(pageSlug);
@@ -42,6 +37,8 @@ async function buildPageMap(
       return {
         name: pageSlug,
         route: `/${generationId}/${pageSlug}`,
+        // Title must be a direct property for normalizePages to pick it up
+        title,
         frontMatter: {
           title,
           description: pageContent?.description,
@@ -50,17 +47,8 @@ async function buildPageMap(
     })
   );
 
-  // Build meta entry for sidebar ordering and titles
-  const metaItem: PageMapMeta = {
-    data: {
-      '*': { display: 'hidden' },
-      ...Object.fromEntries(
-        pageItems.map((item) => [item.name, item.frontMatter.title])
-      ),
-    },
-  };
-
-  return [metaItem, ...pageItems];
+  // Return pages directly - title is on each item
+  return pageItems as PageMapItem[];
 }
 
 export default async function DocsLayout({ children, params }: LayoutProps) {
