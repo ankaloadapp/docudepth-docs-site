@@ -1,6 +1,5 @@
 import { notFound } from 'next/navigation';
-import { getPageContent, getDocsMetaForGeneration, listPages } from '@/lib/source';
-import { DocsPage, DocsBody, DocsTitle, DocsDescription } from 'fumadocs-ui/page';
+import { getPageContent } from '@/lib/source';
 import { MDXContent } from '@/components/mdx-content';
 
 interface PageProps {
@@ -8,32 +7,6 @@ interface PageProps {
     generationId: string;
     slug?: string[];
   };
-}
-
-// Helper to create slug from text
-function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[^\w\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .trim();
-}
-
-// Extract TOC from markdown content
-function extractTOC(content: string): { title: string; url: string; depth: number }[] {
-  const headingRegex = /^(#{1,4})\s+(.+)$/gm;
-  const toc: { title: string; url: string; depth: number }[] = [];
-  let match;
-
-  while ((match = headingRegex.exec(content)) !== null) {
-    const depth = match[1].length;
-    const title = match[2].trim();
-    const url = `#${slugify(title)}`;
-    toc.push({ title, url, depth });
-  }
-
-  return toc;
 }
 
 export default async function Page({ params }: PageProps) {
@@ -46,23 +19,17 @@ export default async function Page({ params }: PageProps) {
     notFound();
   }
 
-  // Extract table of contents from markdown
-  const toc = extractTOC(page.content);
-
   return (
-    <DocsPage toc={toc}>
-      <DocsTitle>{page.title}</DocsTitle>
-      {page.description && <DocsDescription>{page.description}</DocsDescription>}
-      <DocsBody>
-        <MDXContent content={page.content} />
-      </DocsBody>
-    </DocsPage>
+    <article className="prose prose-gray dark:prose-invert max-w-none">
+      <h1 className="text-3xl font-bold mb-4">{page.title}</h1>
+      {page.description && (
+        <p className="text-lg text-gray-600 dark:text-gray-400 mb-8">{page.description}</p>
+      )}
+      <MDXContent content={page.content} />
+    </article>
   );
 }
 
-/**
- * Generate metadata for the page
- */
 export async function generateMetadata({ params }: PageProps) {
   const { generationId, slug } = params;
   const pageSlug = slug?.join('/') || 'index';
@@ -70,9 +37,7 @@ export async function generateMetadata({ params }: PageProps) {
   const page = await getPageContent(generationId, pageSlug);
 
   if (!page) {
-    return {
-      title: 'Page Not Found',
-    };
+    return { title: 'Page Not Found' };
   }
 
   return {
@@ -81,17 +46,8 @@ export async function generateMetadata({ params }: PageProps) {
   };
 }
 
-/**
- * Generate static params for known documentation sites
- * This is optional - pages will be generated on-demand if not pre-built
- */
 export async function generateStaticParams() {
-  // For dynamic S3-based content, we don't pre-generate
-  // Pages are rendered on-demand with ISR
   return [];
 }
 
-/**
- * Enable ISR with revalidation
- */
-export const revalidate = 60; // Revalidate every 60 seconds
+export const revalidate = 60;

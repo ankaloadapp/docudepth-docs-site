@@ -1,4 +1,3 @@
-import { DocsLayout } from 'fumadocs-ui/layouts/docs';
 import type { ReactNode } from 'react';
 import { getDocsStructure, getPageContent } from '@/lib/source';
 import Link from 'next/link';
@@ -60,59 +59,56 @@ export default async function Layout({ children, params }: LayoutProps) {
   // Get the main content to extract headings for sidebar
   const mainPage = await getPageContent(generationId, 'index');
   const headings = mainPage ? extractHeadings(mainPage.content) : [];
-
-  // Build navigation tree from document headings
-  const tree = buildNavigationTreeFromHeadings(headings, generationId, structure.meta.title);
-
-  return (
-    <DocsLayout
-      tree={tree}
-      nav={{
-        title: structure.meta.title,
-        url: `/${generationId}`,
-      }}
-      sidebar={{
-        defaultOpenLevel: 2,
-      }}
-      links={[
-        {
-          text: 'Dashboard',
-          url: 'https://docudepthai.com/dashboard',
-        },
-      ]}
-    >
-      {children}
-    </DocsLayout>
-  );
-}
-
-/**
- * Build Fumadocs navigation tree from document headings
- * Fumadocs PageTree format: { name: string, children: PageTreeItem[] }
- */
-function buildNavigationTreeFromHeadings(
-  headings: { title: string; slug: string; depth: number }[],
-  generationId: string,
-  title: string
-): { name: string; children: any[] } {
-  // Filter to only H2 headings for the main sections
   const h2Headings = headings.filter(h => h.depth === 2);
 
-  const children = h2Headings.map((heading) => ({
-    type: 'page' as const,
-    name: heading.title,
-    url: `/${generationId}#${heading.slug}`,
-  }));
+  return (
+    <div className="min-h-screen bg-white dark:bg-gray-950">
+      {/* Header */}
+      <header className="sticky top-0 z-50 border-b border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-gray-950/80 backdrop-blur-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <Link href={`/${generationId}`} className="font-semibold text-lg text-gray-900 dark:text-white">
+              {structure.meta.title}
+            </Link>
+            <Link
+              href="https://docudepthai.com/dashboard"
+              className="text-sm text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
+            >
+              Dashboard
+            </Link>
+          </div>
+        </div>
+      </header>
 
-  // Fumadocs PageTree expects { name, children } at root
-  return {
-    name: title,
-    children: children.length > 0 ? children : [
-      {
-        type: 'page' as const,
-        name: 'Overview',
-        url: `/${generationId}`,
-      }
-    ],
-  };
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex gap-8">
+          {/* Sidebar */}
+          <aside className="hidden lg:block w-64 shrink-0">
+            <nav className="sticky top-24 space-y-1">
+              <Link
+                href={`/${generationId}`}
+                className="block px-3 py-2 text-sm font-medium text-gray-900 dark:text-white rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                Overview
+              </Link>
+              {h2Headings.map((heading) => (
+                <Link
+                  key={heading.slug}
+                  href={`/${generationId}#${heading.slug}`}
+                  className="block px-3 py-2 text-sm text-gray-600 dark:text-gray-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+                >
+                  {heading.title}
+                </Link>
+              ))}
+            </nav>
+          </aside>
+
+          {/* Main content */}
+          <main className="flex-1 min-w-0">
+            {children}
+          </main>
+        </div>
+      </div>
+    </div>
+  );
 }
