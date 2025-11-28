@@ -1,23 +1,35 @@
 import { S3Client, GetObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
 
-// Use DOCUDEPTH_ prefix for Amplify (AWS_ prefix is reserved)
-const region = process.env.DOCUDEPTH_REGION || process.env.AWS_REGION || 'us-east-2';
-const accessKeyId = process.env.DOCUDEPTH_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID;
-const secretAccessKey = process.env.DOCUDEPTH_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY;
-
-const s3Client = new S3Client({
-  region,
-  // In production, use IAM role. In development, use credentials from env
-  ...(accessKeyId && {
-    credentials: {
-      accessKeyId,
-      secretAccessKey: secretAccessKey!,
-    },
-  }),
-});
-
-const BUCKET = process.env.S3_DOCS_BUCKET || 'docudepth-storage';
 const DOCS_PREFIX = 'docs-sites';
+
+// Lazy-load S3 client to get runtime env vars (not build-time)
+let _s3Client: S3Client | null = null;
+function getS3Client(): S3Client {
+  if (!_s3Client) {
+    // Use DOCUDEPTH_ prefix for Amplify (AWS_ prefix is reserved)
+    const region = process.env.DOCUDEPTH_REGION || process.env.AWS_REGION || 'us-east-2';
+    const accessKeyId = process.env.DOCUDEPTH_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID;
+    const secretAccessKey = process.env.DOCUDEPTH_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY;
+
+    console.log('[S3Client] Initializing with region:', region, 'hasCredentials:', !!accessKeyId);
+
+    _s3Client = new S3Client({
+      region,
+      // In production, use IAM role. In development, use credentials from env
+      ...(accessKeyId && {
+        credentials: {
+          accessKeyId,
+          secretAccessKey: secretAccessKey!,
+        },
+      }),
+    });
+  }
+  return _s3Client;
+}
+
+function getBucket(): string {
+  return process.env.S3_DOCS_BUCKET || 'docudepth-storage';
+}
 
 export interface DocsMeta {
   title: string;
@@ -42,9 +54,9 @@ export interface DocsStructure {
  */
 export async function getDocsMetaForGeneration(generationId: string): Promise<DocsMeta | null> {
   try {
-    const response = await s3Client.send(
+    const response = await getS3Client().send(
       new GetObjectCommand({
-        Bucket: BUCKET,
+        Bucket: getBucket(),
         Key: `${DOCS_PREFIX}/${generationId}/meta.json`,
       })
     );
@@ -74,9 +86,9 @@ export async function getPageContent(
     const pageSlug = slug || 'index';
     const key = `${DOCS_PREFIX}/${generationId}/${pageSlug}.mdx`;
 
-    const response = await s3Client.send(
+    const response = await getS3Client().send(
       new GetObjectCommand({
-        Bucket: BUCKET,
+        Bucket: getBucket(),
         Key: key,
       })
     );
@@ -122,9 +134,9 @@ export async function getPageContent(
  */
 export async function listPages(generationId: string): Promise<string[]> {
   try {
-    const response = await s3Client.send(
+    const response = await getS3Client().send(
       new ListObjectsV2Command({
-        Bucket: BUCKET,
+        Bucket: getBucket(),
         Prefix: `${DOCS_PREFIX}/${generationId}/`,
       })
     );
