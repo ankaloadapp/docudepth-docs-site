@@ -1,5 +1,4 @@
 import { S3Client, GetObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
-import { AnonymousCredentials } from '@aws-sdk/types';
 
 const DOCS_PREFIX = 'docs-sites';
 
