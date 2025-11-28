@@ -124,10 +124,11 @@ export async function listPages(generationId: string): Promise<string[]> {
     const xml = await response.text();
 
     // Parse keys from XML response
-    const keyMatches = xml.matchAll(/<Key>([^<]+)<\/Key>/g);
+    const keyRegex = /<Key>([^<]+)<\/Key>/g;
     const pages: string[] = [];
+    let match;
 
-    for (const match of keyMatches) {
+    while ((match = keyRegex.exec(xml)) !== null) {
       const key = match[1];
       if (key.endsWith('.mdx')) {
         const parts = key.split('/');
