@@ -20,7 +20,7 @@ export default async function RootLayout({
   return (
     <html lang="en" dir="ltr" suppressHydrationWarning>
       <Head />
-      <body>
+      <body suppressHydrationWarning>
         {children}
       </body>
     </html>

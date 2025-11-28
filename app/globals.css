@@ -10,3 +10,8 @@
   --nextra-primary-hue: 262deg;
   --nextra-primary-saturation: 83%;
 }
+
+/* Hide Nextra feedback and edit links */
+.nextra-toc a[href*="github.com"] {
+  display: none !important;
+}

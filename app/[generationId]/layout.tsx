@@ -116,11 +116,9 @@ export default async function DocsLayout({ children, params }: LayoutProps) {
               {structure.meta.title}
             </span>
           }
-          projectLink="https://docudepthai.com/dashboard"
         />
       }
       pageMap={pageMap}
-      docsRepositoryBase="https://docudepthai.com"
       sidebar={{
         defaultMenuCollapseLevel: 2,
         autoCollapse: false,

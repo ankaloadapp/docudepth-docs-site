@@ -1,7 +1,6 @@
 import { notFound } from 'next/navigation';
 import { compileMdx } from 'nextra/compile';
-import { MDXRemote } from 'nextra/mdx-remote';
-import { useMDXComponents } from '@/mdx-components';
+import { MDXRenderer } from '@/components/mdx-renderer';
 import { getPageContent, getDefaultPageSlug } from '@/lib/source';
 import type { PageProps } from '@/lib/types';
 
@@ -18,7 +17,6 @@ export default async function Page({ params }: PageProps) {
   }
 
   // Reconstruct full MDX with frontmatter for proper metadata handling
-  // This allows the wrapper component to access title, description, etc.
   const fullMdxContent = `---
 title: "${page.title.replace(/"/g, '\\"')}"
 ${page.description ? `description: "${page.description.replace(/"/g, '\\"')}"` : ''}
@@ -32,15 +30,9 @@ ${page.content}`;
     useCachedCompiler: true,
   });
 
-  // MDXRemote automatically uses the wrapper component from useMDXComponents()
-  // which provides: TOC, Sidebar integration, Breadcrumbs, Pagination
-  return (
-    <MDXRemote
-      compiledSource={compiledSource}
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      components={useMDXComponents() as any}
-    />
-  );
+  // Use custom MDXRenderer that properly passes toc/metadata to wrapper
+  // This enables the desktop sidebar layout
+  return <MDXRenderer compiledSource={compiledSource} />;
 }
 
 export async function generateMetadata({ params }: PageProps) {

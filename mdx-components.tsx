@@ -57,8 +57,15 @@ function getMermaidCode(child: ReactNode): string | null {
   return null;
 }
 
+// Get default Nextra docs components
+const docsComponents = getDocsMDXComponents();
+
+// Get Nextra's original Pre component for styled code blocks
+const NextraPre = docsComponents.pre;
+
 /**
  * Custom pre component that renders Mermaid diagrams
+ * Falls back to Nextra's styled pre for regular code blocks
  */
 function CustomPre({
   children,
@@ -72,12 +79,14 @@ function CustomPre({
     }
   }
 
-  // Default pre rendering
+  // Use Nextra's styled pre for regular code blocks
+  if (NextraPre) {
+    return <NextraPre {...props}>{children}</NextraPre>;
+  }
+
+  // Fallback to plain pre
   return <pre {...props}>{children}</pre>;
 }
-
-// Get default Nextra docs components
-const docsComponents = getDocsMDXComponents();
 
 /**
  * MDX components registry

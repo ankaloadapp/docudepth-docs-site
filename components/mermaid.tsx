@@ -15,6 +15,17 @@ mermaid.initialize({
   fontFamily: 'inherit',
 });
 
+/**
+ * Sanitize mermaid chart syntax to fix common issues from AI-generated content
+ * - Escapes parentheses in edge labels by wrapping in quotes
+ * - Example: |start()| becomes |"start()"|
+ */
+function sanitizeMermaidChart(chart: string): string {
+  // Fix edge labels containing parentheses: |label()| -> |"label()"|
+  // Match |...| that contains () and isn't already quoted
+  return chart.replace(/\|([^|"]*\([^|]*\)[^|"]*)\|/g, '|"$1"|');
+}
+
 export function Mermaid({ chart }: MermaidProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [svg, setSvg] = useState<string>('');
@@ -28,7 +39,16 @@ export function Mermaid({ chart }: MermaidProps) {
         // Generate unique ID for this chart
         const id = `mermaid-${Math.random().toString(36).substring(2, 11)}`;
 
-        const { svg } = await mermaid.render(id, chart);
+        // Unescape literal \n and \t to actual newlines/tabs
+        let processedChart = chart
+          .replace(/\\n/g, '\n')
+          .replace(/\\t/g, '\t')
+          .trim();
+
+        // Sanitize common syntax issues
+        processedChart = sanitizeMermaidChart(processedChart);
+
+        const { svg } = await mermaid.render(id, processedChart);
         setSvg(svg);
         setError(null);
       } catch (err) {
@@ -41,11 +61,17 @@ export function Mermaid({ chart }: MermaidProps) {
   }, [chart]);
 
   if (error) {
+    // Show diagram as code block when rendering fails
+    const displayChart = chart
+      .replace(/\\n/g, '\n')
+      .replace(/\\t/g, '\t')
+      .trim();
+
     return (
-      <div className="my-4 p-4 border border-red-200 dark:border-red-800 rounded-lg bg-red-50 dark:bg-red-900/20">
-        <p className="text-red-600 dark:text-red-400 text-sm">{error}</p>
-        <pre className="mt-2 text-xs text-gray-600 dark:text-gray-400 overflow-x-auto">
-          {chart}
+      <div className="my-4 p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800/50">
+        <p className="text-gray-500 dark:text-gray-400 text-xs mb-2">Diagram (view as code):</p>
+        <pre className="text-xs text-gray-700 dark:text-gray-300 overflow-x-auto whitespace-pre-wrap">
+          {displayChart}
         </pre>
       </div>
     );
