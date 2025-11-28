@@ -1,4 +1,5 @@
 import { S3Client, GetObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
+import { AnonymousCredentials } from '@aws-sdk/types';
 
 const DOCS_PREFIX = 'docs-sites';
 
@@ -13,15 +14,16 @@ function getS3Client(): S3Client {
 
     console.log('[S3Client] Initializing with region:', region, 'hasCredentials:', !!accessKeyId);
 
+    // Use explicit credentials if provided, otherwise use anonymous access for public bucket
+    const credentials = accessKeyId
+      ? { accessKeyId, secretAccessKey: secretAccessKey! }
+      : { accessKeyId: '', secretAccessKey: '', sessionToken: '' };
+
     _s3Client = new S3Client({
       region,
-      // In production, use IAM role. In development, use credentials from env
-      ...(accessKeyId && {
-        credentials: {
-          accessKeyId,
-          secretAccessKey: secretAccessKey!,
-        },
-      }),
+      credentials,
+      // Disable credential provider chain to avoid errors
+      ...(accessKeyId ? {} : { signer: { sign: async (request: any) => request } }),
     });
   }
   return _s3Client;
