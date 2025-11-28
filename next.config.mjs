@@ -1,3 +1,10 @@
+import nextra from 'nextra';
+
+const withNextra = nextra({
+  // Nextra options
+  defaultShowCopyCode: true,
+});
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -10,27 +17,6 @@ const nextConfig = {
       },
     ],
   },
-  // Transpile packages that have ESM/CJS issues in production
-  transpilePackages: [
-    'fumadocs-ui',
-    'fumadocs-core',
-    'react-markdown',
-    'remark-gfm',
-    'rehype-slug',
-    'unified',
-  ],
-  // Webpack configuration for production
-  webpack: (config, { isServer }) => {
-    // Fix for highlight.js in production
-    if (!isServer) {
-      config.resolve.fallback = {
-        ...config.resolve.fallback,
-        fs: false,
-        path: false,
-      };
-    }
-    return config;
-  },
 };
 
-export default nextConfig;
+export default withNextra(nextConfig);

@@ -1,6 +1,9 @@
 import { notFound } from 'next/navigation';
+import { compileMdx } from 'nextra/compile';
+import { evaluate } from 'nextra/evaluate';
+import { MDXRemote } from 'nextra/mdx-remote';
+import { useMDXComponents } from '@/mdx-components';
 import { getPageContent, getDefaultPageSlug } from '@/lib/source';
-import { MDXContent } from '@/components/mdx-content';
 
 interface PageProps {
   params: {
@@ -21,16 +24,32 @@ export default async function Page({ params }: PageProps) {
     notFound();
   }
 
+  // Compile MDX content using Nextra
+  const rawJs = await compileMdx(page.content, {
+    filePath: `${pageSlug}.mdx`,
+    useCachedCompiler: true,
+  });
+
+  // Evaluate the compiled MDX
+  const { default: MDXContent, toc, metadata } = evaluate(rawJs, useMDXComponents());
+
   return (
-    <article className="prose prose-gray dark:prose-invert max-w-none prose-headings:scroll-mt-20 prose-a:text-purple-600 dark:prose-a:text-purple-400 prose-pre:bg-gray-50 dark:prose-pre:bg-gray-900 prose-pre:border prose-pre:border-gray-200 dark:prose-pre:border-gray-800">
-      <div className="mb-8 pb-8 border-b border-gray-200 dark:border-gray-800">
-        <h1 className="text-4xl font-bold mb-3 !mt-0">{page.title}</h1>
+    <main className="nx-w-full nx-min-w-0 nx-max-w-6xl nx-px-6 nx-pt-4 md:nx-px-12">
+      <article className="nx-w-full nx-break-words">
+        {/* Title from frontmatter or page data */}
+        <h1 className="nx-mt-2 nx-text-4xl nx-font-bold nx-tracking-tight nx-text-slate-900 dark:nx-text-slate-100">
+          {page.title}
+        </h1>
         {page.description && (
-          <p className="text-lg text-gray-600 dark:text-gray-400 !mb-0">{page.description}</p>
+          <p className="nx-mt-4 nx-text-lg nx-text-gray-600 dark:nx-text-gray-400">
+            {page.description}
+          </p>
         )}
-      </div>
-      <MDXContent content={page.content} />
-    </article>
+        <div className="nx-mt-8">
+          <MDXContent />
+        </div>
+      </article>
+    </main>
   );
 }
 

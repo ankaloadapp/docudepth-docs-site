@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
-import { RootProvider } from 'fumadocs-ui/provider';
+import { Banner, Head } from 'nextra/components';
+import { getPageMap } from 'nextra/page-map';
+import 'nextra-theme-docs/style.css';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -10,15 +12,16 @@ export const metadata: Metadata = {
   description: 'AI-generated documentation powered by DocuDepth',
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" dir="ltr" suppressHydrationWarning>
+      <Head />
       <body>
-        <RootProvider>{children}</RootProvider>
+        {children}
       </body>
     </html>
   );
