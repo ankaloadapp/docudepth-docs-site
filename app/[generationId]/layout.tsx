@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import { Layout, Navbar } from 'nextra-theme-docs';
-import { getDocsStructure } from '@/lib/source';
-import { convertToPageMap, normalizePageMap } from 'nextra/page-map';
+import { getDocsStructure, getPageContent } from '@/lib/source';
 import Link from 'next/link';
 
 // Disable caching - always fetch fresh data from S3
@@ -13,22 +12,36 @@ interface LayoutProps {
 }
 
 // Build page map from our S3 docs structure
-function buildPageMap(generationId: string, structure: { meta: { title: string; pages: string[] } }) {
-  const pages = structure.meta.pages.map((pageSlug) => ({
-    name: pageSlug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
-    route: `/${generationId}/${pageSlug}`,
-  }));
+async function buildPageMap(generationId: string, structure: { meta: { title: string; pages: string[] } }) {
+  // Build flat page items for Nextra
+  const pageItems = await Promise.all(
+    structure.meta.pages.map(async (pageSlug) => {
+      const pageContent = await getPageContent(generationId, pageSlug);
+      const title = pageContent?.title || pageSlug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
-  return normalizePageMap([
+      return {
+        name: pageSlug,
+        route: `/${generationId}/${pageSlug}`,
+        frontMatter: { title },
+      };
+    })
+  );
+
+  // Return as array with data entry for metadata
+  return [
     {
-      name: structure.meta.title,
-      route: `/${generationId}`,
-      children: pages.map((page) => ({
-        name: page.name,
-        route: page.route,
-      })),
+      data: {
+        '*': { display: 'hidden' },
+        ...Object.fromEntries(
+          structure.meta.pages.map((slug) => {
+            const item = pageItems.find(p => p.name === slug);
+            return [slug, item?.frontMatter.title || slug];
+          })
+        ),
+      },
     },
-  ]);
+    ...pageItems,
+  ];
 }
 
 export default async function DocsLayout({ children, params }: LayoutProps) {
@@ -54,7 +67,7 @@ export default async function DocsLayout({ children, params }: LayoutProps) {
     );
   }
 
-  const pageMap = buildPageMap(generationId, structure);
+  const pageMap = await buildPageMap(generationId, structure);
 
   return (
     <Layout
