@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Layout, Navbar } from 'nextra-theme-docs';
 import type { PageMapItem, MdxFile } from 'nextra';
-import { getDocsStructure, getPageContent, formatSlugAsTitle } from '@/lib/source';
+import { getDocsStructure, formatSlugAsTitle } from '@/lib/source';
 import Link from 'next/link';
 
 // ISR: Revalidate every 5 minutes
@@ -23,31 +23,29 @@ interface PageItem extends MdxFile {
 /**
  * Build Nextra-compatible page map from S3 docs structure
  * Following Nextra's expected format for the docs theme sidebar
+ *
+ * Note: We use formatSlugAsTitle instead of fetching each page's content
+ * to avoid N S3 requests per page load. Page titles in sidebar come from
+ * the slug, actual titles are shown on the page itself.
  */
-async function buildPageMap(
+function buildPageMap(
   generationId: string,
   structure: { meta: { title: string; pages: string[] } }
-): Promise<PageMapItem[]> {
-  // Build page items with direct title property (required for sidebar display)
-  const pageItems: PageItem[] = await Promise.all(
-    structure.meta.pages.map(async (pageSlug) => {
-      const pageContent = await getPageContent(generationId, pageSlug);
-      const title = pageContent?.title || formatSlugAsTitle(pageSlug);
+): PageMapItem[] {
+  // Build page items using slug-derived titles (fast, no S3 fetches)
+  const pageItems: PageItem[] = structure.meta.pages.map((pageSlug) => {
+    const title = formatSlugAsTitle(pageSlug);
 
-      return {
-        name: pageSlug,
-        route: `/${generationId}/${pageSlug}`,
-        // Title must be a direct property for normalizePages to pick it up
+    return {
+      name: pageSlug,
+      route: `/${generationId}/${pageSlug}`,
+      title,
+      frontMatter: {
         title,
-        frontMatter: {
-          title,
-          description: pageContent?.description,
-        },
-      };
-    })
-  );
+      },
+    };
+  });
 
-  // Return pages directly - title is on each item
   return pageItems as PageMapItem[];
 }
 
